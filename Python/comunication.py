@@ -112,7 +112,7 @@ class SerialGUI:
             servo1 = int(self.servo1_var.get())
             servo2 = int(self.servo2_var.get())
             
-            if not (0 <= servo1 <= 180 and 0 <= servo2 <= 180):
+            if not (0 <= servo1 <= 180 and 0 <= servo2 <= 360):
                 messagebox.showerror("Error", "Los ángulos deben estar entre 0 y 180")
                 return
                 

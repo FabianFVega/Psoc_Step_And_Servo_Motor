@@ -20,7 +20,12 @@
                                // - Mayor valor: rampa más suave y larga.
                                // - Menor valor: rampa más brusca y corta.
                                // Deberás probar cuál es el mejor valor para tu motor y aplicación
-
+                            #define SERVO_MIN_PULSE_COMPARE_VALUE   10  // Valor para ~1ms de pulso (ej. extremo de rotación o 0 grados)
+#define SERVO_MAX_PULSE_COMPARE_VALUE   20  // Valor para ~2ms de pulso (ej. otro extremo de rotación o 180 grados)
+#define SERVO_PULSE_RANGE  (SERVO_MAX_PULSE_COMPARE_VALUE - SERVO_MIN_PULSE_COMPARE_VALUE) // Rango de 1000
+// Punto de PARADA específico para un servo de 360 grados (típicamente 1.5ms)
+// Ajusta este valor si tu servo de 360 grados no se detiene exactamente con 1500.
+#define SERVO_360_STOP_PULSE_COMPARE_VALUE 15
 char rxBuffer[RX_BUFFER_SIZE];
 
 volatile uint8 rxBufferIdx = 0; // Índice actual del buffer
@@ -32,104 +37,6 @@ int servo1Degrees = 0;
 int servo2Degrees = 0;
 uint32_t Addr = 0x27;
 char lcdLineBuffer[17];
-
-//-------------------------------------Interrupciones------------------------------------------------//
-CY_ISR(UART_RX_ISR_Handler) // El nombre de la función C que maneja la interrupción
-{
-     uint32 readStatus = UART_ReadRxStatus(); // Lee el registro de estado para limpiar la interrupción
-
-    if (readStatus & UART_RX_STS_FIFO_NOTEMPTY) // Si hay datos en el FIFO de RX
-    {
-        // *** CAMBIO AQUÍ: Usar la función API para leer el carácter recibido ***
-        char receivedChar = UART_ReadRxData(); // Lee el byte recibido
-
-        if (receivedChar == '\n') // Si el byte es un salto de línea (terminador de mensaje)
-        {
-            rxBuffer[rxBufferIdx] = '\0'; // Null-termina la cadena en el buffer
-            newMessageFlag = 1;         // Marca la bandera para que el bucle principal procese
-            rxBufferIdx = 0;            // Reinicia el índice del buffer para el próximo mensaje
-        }
-        else if (rxBufferIdx < (RX_BUFFER_SIZE - 1)) // Si no es salto de línea y hay espacio en el buffer
-        {
-            rxBuffer[rxBufferIdx++] = receivedChar; // Almacena el byte y avanza el índice
-        }
-    }
-}
-//----------------------------------------------funcion LCD--------------------------------------------------------//
-void printLcd(int line,int col, const char* message){
-    setCursor(col,line);
-    char displayBuffer[17];
-    int len = 0;
-    while (message[len] != '\0' && len < 16) {
-        displayBuffer[len] = message[len];
-        len++;
-    }
-    for (int i = len; i < 16; i++) { displayBuffer[i] = ' ';}
-    displayBuffer[16] = '\0'; 
-    LCD_print(displayBuffer);  
-}
-
-//------------------------------------------Función de serial-------------------------------------------------//
-void processMessage(char* message)
-{
-     char commandType = message[0];
-    int parsedValue1, parsedValue2; // Usados para parsing genérico
-    char parsedDirChar;             // Usado para la dirección del motor
-
-    switch(commandType)
-    {
-        case 'M': // Comando de Motor: M,<dirección>,<RPM>,<distancia>
-            // sscanf ahora busca 3 valores: un char y dos enteros
-            if (sscanf(&message[2], "%c,%d,%d", &parsedDirChar, &motorRPM_parsed, &motorDistance_parsed) == 3)
-            {
-                // Convertir el carácter de dirección a booleano
-                // Asumimos 'R' (Right) es true, 'L' (Left) es false
-                bool dirBool = (parsedDirChar == 'R') ? true : false; 
-                
-                // --- ¡Llamada a la nueva función de control del motor! ---
-                control_motor(dirBool, (uint16)motorRPM_parsed, (uint16)motorDistance_parsed);
-
-                // --- Impresión de depuración por UART (opcional) ---
-                UART_PutString("Motor Cmd Recibido: Dir=");
-                UART_PutChar(parsedDirChar);
-                UART_PutString(", RPM=");
-                char tempStrRPM[10];
-                sprintf(tempStrRPM, "%d, Dist=", motorRPM_parsed);
-                UART_PutString(tempStrRPM);
-                char tempStrDist[10];
-                sprintf(tempStrDist, "%d\r\n", motorDistance_parsed);
-                UART_PutString(tempStrDist);
-            }
-            else
-            {
-                UART_PutString("Error: Comando de motor malformado (esperado M,<dir>,<rpm>,<dist>).\r\n");
-            }
-            break;
-
-        case 'S': // Comando de Servo: S,<grados_servo1>,<grados_servo2>
-            // (Este caso permanece igual)
-            if (sscanf(&message[2], "%d,%d", &servo1Degrees, &servo2Degrees) == 2)
-            {
-                // --- Aquí iría tu lógica de control de los servos ---
-                UART_PutString("Servo Cmd Recibido: S1=");
-                char tempStr1[10];
-                sprintf(tempStr1, "%d, S2=", servo1Degrees);
-                UART_PutString(tempStr1);
-                char tempStr2[10];
-                sprintf(tempStr2, "%d\r\n", servo2Degrees);
-                UART_PutString(tempStr2);
-            }
-            else
-            {
-                UART_PutString("Error: Comando de servo malformado.\r\n");
-            }
-            break;
-
-        default:
-            UART_PutString("Error: Tipo de comando desconocido.\r\n");
-            break;
-    }
-}
 
 
 
@@ -198,7 +105,6 @@ uint16 calculate_delay(uint32 current_step_idx, uint32 total_steps, uint16 initi
     return (uint16)current_delay;
 }
 
-
 void step_motor_ramped(uint32 steps_to_move, bool direction, uint16 initial_delay_us, uint16 min_delay_us) {
     DIR_Write(direction); // Establece la dirección (1 o 0)
     CyDelayUs(50);        // Pequeño retardo para que el pin de dirección se estabilice
@@ -255,35 +161,251 @@ void control_motor(bool direction, uint16 target_rpm, uint16 distance_mm) {
     // Llamar a la función de pasos con rampa usando los valores calculados
     step_motor_ramped(total_steps_for_distance, direction, initial_delay_us, calculated_min_delay_us);
 }
+//-------------------------------------Interrupciones------------------------------------------------//
+CY_ISR(UART_RX_ISR_Handler) // El nombre de la función C que maneja la interrupción
+{
+     uint32 readStatus = UART_ReadRxStatus(); // Lee el registro de estado para limpiar la interrupción
+
+    if (readStatus & UART_RX_STS_FIFO_NOTEMPTY) // Si hay datos en el FIFO de RX
+    {
+        // *** CAMBIO AQUÍ: Usar la función API para leer el carácter recibido ***
+        char receivedChar = UART_ReadRxData(); // Lee el byte recibido
+
+        if (receivedChar == '\n') // Si el byte es un salto de línea (terminador de mensaje)
+        {
+            rxBuffer[rxBufferIdx] = '\0'; // Null-termina la cadena en el buffer
+            newMessageFlag = 1;         // Marca la bandera para que el bucle principal procese
+            rxBufferIdx = 0;            // Reinicia el índice del buffer para el próximo mensaje
+        }
+        else if (rxBufferIdx < (RX_BUFFER_SIZE - 1)) // Si no es salto de línea y hay espacio en el buffer
+        {
+            rxBuffer[rxBufferIdx++] = receivedChar; // Almacena el byte y avanza el índice
+        }
+    }
+}
+//----------------------------------------------funcion LCD--------------------------------------------------------//
+void printLcd(int line,int col, const char* message){
+    setCursor(col,line);
+    char displayBuffer[17];
+    int len = 0;
+    while (message[len] != '\0' && len < 16) {
+        displayBuffer[len] = message[len];
+        len++;
+    }
+    for (int i = len; i < 16; i++) { displayBuffer[i] = ' ';}
+    displayBuffer[16] = '\0'; 
+    LCD_print(displayBuffer);  
+}
+//--------------------------control servo motor------------------------------//
+uint16 map_angle_to_compare_value(uint16 angle_input) {
+    // Asegurarse de que la entrada esté dentro del rango 0-180
+    if (angle_input > 180) angle_input = 180;
+    // (uint16 es sin signo, no puede ser < 0)
+
+    // Mapeo lineal: min_pulso + (input * (rango_pulso / 180))
+    // Usamos uint32 para la multiplicación intermedia para evitar desbordamientos
+    uint32 compare_value = (uint32)SERVO_MIN_PULSE_COMPARE_VALUE +
+                           ((uint32)angle_input * SERVO_PULSE_RANGE) / 180;
+    
+    // Comprobaciones de seguridad adicionales
+    if (compare_value > SERVO_MAX_PULSE_COMPARE_VALUE) compare_value = SERVO_MAX_PULSE_COMPARE_VALUE;
+    if (compare_value < SERVO_MIN_PULSE_COMPARE_VALUE) compare_value = SERVO_MIN_PULSE_COMPARE_VALUE;
+
+    return (uint16)compare_value;
+}
+// --- Función para establecer el ángulo de un servomotor ---
+// servo_id: 1 para Servo1, 2 para Servo2
+// angle: el valor deseado en grados (0-180) enviado desde el GUI
+void set_servo_angle(uint8 servo_id, uint16 angle) {
+    uint16 compare_val;
+
+    if (servo_id == 1) {
+        // --- Servo Estándar (0-180 grados) ---
+        // Aquí 'angle' se interpreta como la posición en grados.
+        compare_val = map_angle_to_compare_value(angle);
+        PWM_Servo1_WriteCompare(compare_val); // API generada por PSoC Creator
+        
+        // Opcional: Debug por UART
+        // UART_PutString("Servo 1 a: ");
+        // char temp[5]; sprintf(temp, "%d\r\n", angle); UART_PutString(temp);
+        
+    } else if (servo_id == 2) {
+        // --- Servo de 360 Grados (Rotación Continua) ---
+        // Aquí 'angle' se interpreta como un valor de control de velocidad/dirección.
+        // Ej: angle=0  -> Máxima velocidad en un sentido.
+        //     angle=90 -> Detenido (aproximadamente, ajusta con SERVO_360_STOP_PULSE_COMPARE_VALUE).
+        //     angle=180-> Máxima velocidad en el sentido opuesto.
+        
+        // Mapeo directo de 0-180 a los valores min/max de pulso del servo
+        compare_val = map_angle_to_compare_value(angle);
+        PWM_Servo2_WriteCompare(compare_val); // API generada por PSoC Creator
+        
+        // Opcional: Para detenerlo precisamente si se recibe '90' o un valor específico.
+        // if (angle == 90) { // O cualquier valor que uses para "detener"
+        //    PWM_Servo2_SetCompare(SERVO_360_STOP_PULSE_COMPARE_VALUE);
+        // } else {
+        //    compare_val = map_angle_to_compare_value(angle);
+        //    PWM_Servo2_SetCompare(compare_val);
+        // }
+
+        // Opcional: Debug por UART
+        // UART_PutString("Servo 2 (360) a control: ");
+        // char temp[5]; sprintf(temp, "%d\r\n", angle); UART_PutString(temp);
+
+    }
+    // Puedes añadir un 'else' aquí para manejar IDs de servo no válidos si es necesario
+}
+//------------------------------------------Función de serial-------------------------------------------------//
+void processMessage(char* message)
+{
+    char commandType = message[0];
+    int parsedValue1, parsedValue2; // Usados para parsing genérico
+    char parsedDirChar;             // Usado para la dirección del motor
+
+    switch(commandType)
+    {
+        case 'M': // Comando de Motor: M,<dirección>,<RPM>,<distancia>
+            // sscanf ahora busca 3 valores: un char y dos enteros
+            if (sscanf(&message[2], "%c,%d,%d", &parsedDirChar, &motorRPM_parsed, &motorDistance_parsed) == 3)
+            {
+                // Convertir el carácter de dirección a booleano
+                // Asumimos 'R' (Right) es true, 'L' (Left) es false
+                bool dirBool = (parsedDirChar == 'R') ? true : false; 
+                
+                // --- ¡Llamada a la nueva función de control del motor! ---
+                control_motor(dirBool, (uint16)motorRPM_parsed, (uint16)motorDistance_parsed);
+
+                // --- Impresión de depuración por UART (opcional) ---
+                UART_PutString("Motor Cmd Recibido: Dir=");
+                UART_PutChar(parsedDirChar);
+                UART_PutString(", RPM=");
+                char tempStrRPM[10];
+                sprintf(tempStrRPM, "%d, Dist=", motorRPM_parsed);
+                UART_PutString(tempStrRPM);
+                char tempStrDist[10];
+                sprintf(tempStrDist, "%d\r\n", motorDistance_parsed);
+                UART_PutString(tempStrDist);
+            }
+            else
+            {
+                UART_PutString("Error: Comando de motor malformado (esperado M,<dir>,<rpm>,<dist>).\r\n");
+            }
+            break;
+
+        case 'S': // Comando de Servo: S,<grados_servo1>,<grados_servo2>
+            // (Este caso permanece igual)
+            if (sscanf(&message[2], "%d,%d", &servo1Degrees, &servo2Degrees) == 2)
+            {
+                // --- Aquí iría tu lógica de control de los servos ---
+                UART_PutString("Servo Cmd Recibido: S1=");
+                char tempStr1[10];
+                if(servo1Degrees == 0){
+                    if(servo2Degrees == 0){
+                        PWM_Servo1_WriteCompare(1000); // 1 ms
+                        CyDelay(1000);
+                        PWM_Servo2_WriteCompare(1000); // 1 ms
+                        CyDelay(1000);
+
+
+                    }else if(servo2Degrees==90){
+                        PWM_Servo1_WriteCompare(1000); // 1 ms
+                        CyDelay(1000);
+                        PWM_Servo2_WriteCompare(1500); // 1 ms
+                        CyDelay(1000);
+                    }
+                    else if(servo2Degrees== 180){
+                        PWM_Servo1_WriteCompare(1000); // 1 ms
+                        CyDelay(1000);
+                        PWM_Servo2_WriteCompare(2000); // 1 ms
+                        CyDelay(1000);
+                    }
+                }else if(servo1Degrees==90){
+                    if(servo2Degrees == 0){
+                        PWM_Servo1_WriteCompare(1500); // 1 ms
+                        CyDelay(1000);
+                        PWM_Servo2_WriteCompare(1000); // 1 ms
+                        CyDelay(1000);
+
+
+                    }else if(servo2Degrees==90){
+                        PWM_Servo1_WriteCompare(1500); // 1 ms
+                        CyDelay(1000);
+                        PWM_Servo2_WriteCompare(1500); // 1 ms
+                        CyDelay(1000);
+                    }
+                    else if(servo2Degrees== 180){
+                        PWM_Servo1_WriteCompare(1500); // 1 ms
+                        CyDelay(1000);
+                        PWM_Servo2_WriteCompare(2000); // 1 ms
+                        CyDelay(1000);
+                    }
+                }
+                else if(servo1Degrees== 180){
+                    if(servo2Degrees == 0){
+                        PWM_Servo1_WriteCompare(2000); // 1 ms
+                        CyDelay(1000);
+                        PWM_Servo2_WriteCompare(1000); // 1 ms
+                        CyDelay(1000);
+
+
+                    }else if(servo2Degrees==90){
+                        PWM_Servo1_WriteCompare(2000); // 1 ms
+                        CyDelay(1000);
+                        PWM_Servo2_WriteCompare(1500); // 1 ms
+                        CyDelay(1000);
+                    }
+                    else if(servo2Degrees== 180){
+                        PWM_Servo1_WriteCompare(4000); // 1 ms
+                        CyDelay(1000);
+                        PWM_Servo2_WriteCompare(2000); // 1 ms
+                        CyDelay(1000);
+                    }
+                }
+                sprintf(tempStr1, "%d, S2=", servo1Degrees);
+                UART_PutString(tempStr1);
+                char tempStr2[10];
+                sprintf(tempStr2, "%d\r\n", servo2Degrees);
+                UART_PutString(tempStr2);
+                set_servo_angle(1, servo1Degrees); // Servo 1 (estándar) a 90 grados
+                set_servo_angle(2, servo2Degrees); // Servo 2 (360 grados) a su punto de PARADA o inicio de control
+                            // Si 90 en el GUI significa detenerlo, esto lo detendrá.
+
+            }
+            else
+            {
+                UART_PutString("Error: Comando de servo malformado.\r\n");
+            }
+            break;
+
+        default:
+            UART_PutString("Error: Tipo de comando desconocido.\r\n");
+            break;
+    }
+}
+
+
+
 
 
 int main(void) {
-    //CyGlobalIntEnable;
-    //I2C_Start();
-    //for (;;) {
-        
-    //    step_motor_ramped(7250, true, 4000, 600); 
-    //    CyDelay(2000); 
-   
-   //     step_motor_ramped(7250, false, 2000, 600);
-    //    CyDelay(2000); 
-    //}
-     CyGlobalIntEnable; /* Habilita las interrupciones globales. */
+    
+    CyGlobalIntEnable; /* Habilita las interrupciones globales. */
 
-    /* Coloca tu código de inicialización aquí. */
     UART_Start(); // Inicia el componente UART
     UART_SetRxInterruptMode(UART_RX_STS_FIFO_NOTEMPTY); // Configura la interrupción para FIFO no vacío
     
     // Este nombre 'isrRx' proviene de tu esquemático
     isrRx_StartEx(UART_RX_ISR_Handler); // Inicia y asocia el ISR con el manejador definido
-    
+    PWM_Servo1_Start(); 
+    PWM_Servo2_Start(); 
     UART_PutString("PSoC 5LP Listo. Esperando comandos...\r\n");
     I2C_Start();
     LiquidCrystal_I2C_init(Addr, 16, 2, 0);
     begin();
     clear();
     printLcd(0,1,"Esperando comandos");
-
+    
+   
     for(;;) // Bucle infinito
     {
         /* Coloca tu código de aplicación principal aquí. */

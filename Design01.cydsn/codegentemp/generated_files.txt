@@ -45,6 +45,22 @@
   <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\UART_BOOT.c" value="SOURCE_C;CortexM3;;;;UART" />
   <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\isrRx.c" value="SOURCE_C;CortexM3;;;;isrRx" />
   <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\isrRx.h" value="HEADER;;;;;isrRx" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\PWM_Servo1.c" value="SOURCE_C;CortexM3;;;;PWM_Servo1" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\PWM_Servo1.h" value="HEADER;;;;;PWM_Servo1" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\PWM_Servo1_PM.c" value="SOURCE_C;CortexM3;;;;PWM_Servo1" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\PWM_Servo2.c" value="SOURCE_C;CortexM3;;;;PWM_Servo2" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\PWM_Servo2.h" value="HEADER;;;;;PWM_Servo2" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\PWM_Servo2_PM.c" value="SOURCE_C;CortexM3;;;;PWM_Servo2" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\Clock_1.c" value="SOURCE_C;CortexM3;;;;Clock_1" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\Clock_1.h" value="HEADER;;;;;Clock_1" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\Clock_2.c" value="SOURCE_C;CortexM3;;;;Clock_2" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\Clock_2.h" value="HEADER;;;;;Clock_2" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\Pin_1_aliases.h" value="HEADER;;;;;Pin_1" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\Pin_1.c" value="SOURCE_C;CortexM3;;;;Pin_1" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\Pin_1.h" value="HEADER;;;;;Pin_1" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\Pin_2_aliases.h" value="HEADER;;;;;Pin_2" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\Pin_2.c" value="SOURCE_C;CortexM3;;;;Pin_2" />
+  <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\Pin_2.h" value="HEADER;;;;;Pin_2" />
   <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\UART_IntClock.c" value="SOURCE_C;CortexM3;;;;UART_IntClock" />
   <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\UART_IntClock.h" value="HEADER;;;;;UART_IntClock" />
   <file name="C:\Users\57322\Documents\PSoC Creator\Project_4\Design01.cydsn\codegentemp\cm3gcc.ld" value="LINKER_SCRIPT;;;b98f980c-3bd1-4fc7-a887-c56a20a46fdd;;cy_boot" />
